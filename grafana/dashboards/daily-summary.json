@@ -1,0 +1,179 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": { "type": "grafana", "uid": "-- Grafana --" },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "description": "Daily energy summary with seasonally-adjusted Sun Index (0–10).",
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "datasource": { "type": "influxdb", "uid": "solax-influxdb" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "fixedColor": "orange", "mode": "fixed" },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "kWh",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 25,
+            "gradientMode": "opacity",
+            "hideFrom": { "legend": false, "tooltip": false, "viz": false },
+            "insertNulls": false,
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "scaleDistribution": { "type": "linear" },
+            "showPoints": "auto",
+            "spanNulls": true,
+            "stacking": { "group": "A", "mode": "none" },
+            "thresholdsStyle": { "mode": "off" }
+          },
+          "mappings": [],
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{ "color": "green", "value": null }]
+          },
+          "unit": "kwatth"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 12, "w": 24, "x": 0, "y": 0 },
+      "id": 1,
+      "options": {
+        "legend": {
+          "calcs": ["max", "lastNotNull"],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": { "mode": "single", "sort": "none" }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "influxdb", "uid": "solax-influxdb" },
+          "query": "from(bucket: v.defaultBucket)\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"solar_inverter\")\n  |> filter(fn: (r) => r._field == \"yield_today_kwh\")\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> yield(name: \"last\")",
+          "refId": "A"
+        }
+      ],
+      "title": "Energy Yield Today",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "influxdb", "uid": "solax-influxdb" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "fixedColor": "orange", "mode": "fixed" },
+          "decimals": 2,
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null }
+            ]
+          },
+          "unit": "kwatth"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 12 },
+      "id": 2,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value_and_name"
+      },
+      "targets": [
+        {
+          "datasource": { "type": "influxdb", "uid": "solax-influxdb" },
+          "query": "from(bucket: v.defaultBucket)\n  |> range(start: today())\n  |> filter(fn: (r) => r._measurement == \"solar_inverter\")\n  |> filter(fn: (r) => r._field == \"yield_today_kwh\")\n  |> last()",
+          "refId": "A"
+        }
+      ],
+      "title": "Today's Total Yield",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "influxdb", "uid": "solax-influxdb" },
+      "description": "Seasonal Sun Index (0–10).\nPeak definitions: Winter (Nov–Jan) = 12.5 kWh, Summer (May–Jul) = 57 kWh.\nSpring/Autumn months are linearly interpolated between the two peaks.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "decimals": 1,
+          "mappings": [],
+          "max": 10,
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red",    "value": null },
+              { "color": "yellow", "value": 3 },
+              { "color": "green",  "value": 6 }
+            ]
+          },
+          "unit": "none",
+          "displayName": "Sun Index"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 12 },
+      "id": 3,
+      "options": {
+        "minVizHeight": 75,
+        "minVizWidth": 75,
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "showThresholdLabels": true,
+        "showThresholdMarkers": true
+      },
+      "targets": [
+        {
+          "datasource": { "type": "influxdb", "uid": "solax-influxdb" },
+          "query": "import \"date\"\n\nfrom(bucket: v.defaultBucket)\n  |> range(start: today())\n  |> filter(fn: (r) => r._measurement == \"solar_inverter\")\n  |> filter(fn: (r) => r._field == \"yield_today_kwh\")\n  |> last()\n  |> map(fn: (r) => {\n      m = date.month(t: r._time)\n      peak =\n        if m == 11 or m == 12 or m == 1 then 12.5\n        else if m == 5 or m == 6 or m == 7 then 57.0\n        else if m == 2 then 23.625\n        else if m == 3 then 34.75\n        else if m == 4 then 45.875\n        else if m == 8 then 45.875\n        else if m == 9 then 34.75\n        else 23.625\n      raw = r._value / peak * 10.0\n      return {r with _value: if raw > 10.0 then 10.0 else raw}\n  })",
+          "refId": "A"
+        }
+      ],
+      "title": "Sun Index (Today)",
+      "type": "gauge"
+    }
+  ],
+  "refresh": "5m",
+  "schemaVersion": 38,
+  "tags": ["solar"],
+  "time": { "from": "now/d", "to": "now" },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "Daily Summary",
+  "uid": "solar-daily-summary",
+  "version": 1
+}
